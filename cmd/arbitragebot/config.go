@@ -26,10 +26,7 @@ type Config struct {
 // LoadConfig loads the configuration values from environment variables or .env file.
 func LoadConfig() (*Config, error) {
 	// Load .env file if it exists
-	err := godotenv.Load()
-	if err != nil {
-		return nil, err
-	}
+	_ = godotenv.Load()
 
 	config := &Config{}
 

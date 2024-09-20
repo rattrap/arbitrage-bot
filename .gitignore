@@ -17,3 +17,9 @@ arbitragebot
 
 # Environment variables file
 .env
+
+# Tools
+bin/
+
+# Build directory
+build/
