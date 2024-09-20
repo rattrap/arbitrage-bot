@@ -29,7 +29,10 @@ func main() {
 
 	// Initialize Telegram service
 	telegramService := telegram.NewTelegramService(config.TelegramBotToken, config.TelegramChannelID)
-	telegramService.SendMessage("Arbitrage bot started")
+	err = telegramService.SendMessage("Arbitrage bot started")
+	if err != nil {
+		logger.WithError(err).Fatal("Failed to send message to Telegram")
+	}
 
 	// Initialize KuCoin API client
 	err, kucoinClient := kucoin.NewKucoinClient(config.KucoinAPIKey, config.KucoinAPISecret, config.KucoinAPIPassphrase, ctx)

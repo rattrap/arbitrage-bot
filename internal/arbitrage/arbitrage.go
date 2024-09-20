@@ -52,8 +52,11 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 
 				stat := fmt.Sprintf("KuCoin price: %.18f, Uniswap price: %.18f, Price difference: %.18f (%.2f%%)", kucoinPrice, uniswapPrice, priceDifference, priceDifferencePercentage)
 
-				a.logger.Infof(stat)
-				a.telegram.SendMessage(telegram.FormatMessage(stat))
+				a.logger.Info(stat)
+				err := a.telegram.SendMessage(telegram.FormatMessage(stat))
+				if err != nil {
+					a.logger.WithError(err).Error("Failed to send message to Telegram")
+				}
 
 				if math.Abs(priceDifferencePercentage) > 1 {
 					a.logger.Info("Arbitrage opportunity found")
