@@ -1,4 +1,4 @@
-name: Run tests
+name: Check
 on: [push]
 jobs:
   build:
@@ -12,6 +12,20 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+
+      - name: Check for no untracked files
+        run: |
+          go install gitlab.com/jamietanna/tidied@latest
+          tidied -verbose
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.60.1
+          args: --timeout=3m
+
+      - name: Build
+        run: make build
 
       - name: Run `make check`
         run: make check
