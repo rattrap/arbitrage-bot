@@ -24,7 +24,7 @@ type PricingService struct {
 // NewPricingService initializes a new PricingService
 func NewPricingService(kucoinClient *kucoin.KucoinClient, uniswapClient *uniswap.UniswapClient, logger *logging.Logger) *PricingService {
 	prefixedLogger := logger.WithField("prefix", "pricing")
-	prefixedLogger.Info("Initializing service")
+	prefixedLogger.Debug("Initializing service")
 
 	return &PricingService{
 		kucoinClient:  kucoinClient,
@@ -61,12 +61,12 @@ func (ps *PricingService) FetchPrices() {
 
 // Start starts the PricingService
 func (ps *PricingService) Start() {
-	ps.logger.Info("Starting service")
+	ps.logger.Debug("Starting service")
 	go (func() {
 		for {
 			select {
 			case <-ps.stopChan:
-				ps.logger.Info("Stopping service")
+				ps.logger.Debug("Stopping service")
 				return
 			default:
 				ps.FetchPrices()
@@ -92,6 +92,6 @@ func (ps *PricingService) GetUniswapPrice(token string) float64 {
 
 // Close closes the PricingService
 func (ps *PricingService) Close() {
-	ps.logger.Info("Closing service")
+	ps.logger.Debug("Closing service")
 	close(ps.stopChan)
 }

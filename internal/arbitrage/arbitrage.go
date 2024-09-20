@@ -21,7 +21,7 @@ type ArbitrageService struct {
 // NewArbitrageService initializes a new ArbitrageService
 func NewArbitrageService(pricingService *pricing.PricingService, executor *execution.Executor, logger *logging.Logger) *ArbitrageService {
 	prefixedLogger := logger.WithField("prefix", "arbitrage")
-	prefixedLogger.Info("Initializing service")
+	prefixedLogger.Debug("Initializing service")
 	return &ArbitrageService{
 		pricingService: pricingService,
 		executor:       executor,
@@ -35,7 +35,7 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 		for {
 			select {
 			case <-a.stopChan:
-				a.logger.Info("Stopping arbitrage loop")
+				a.logger.Debug("Stopping arbitrage loop")
 				return
 			default:
 				a.logger.Info("Checking for arbitrage opportunities...")
@@ -61,7 +61,7 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 
 // Close closes the ArbitrageService
 func (a *ArbitrageService) Close() {
-	a.logger.Info("Closing service")
+	a.logger.Debug("Closing service")
 	close(a.stopChan)
 	a.executor.Close()
 }

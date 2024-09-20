@@ -18,7 +18,7 @@ type Executor struct {
 // NewExecutor initializes a new Executor
 func NewExecutor(kucoinClient *kucoin.KucoinClient, uniswapClient *uniswap.UniswapClient, logger *logging.Logger) *Executor {
 	prefixedLogger := logger.WithField("prefix", "execution")
-	prefixedLogger.Info("Initializing")
+	prefixedLogger.Debug("Initializing")
 	return &Executor{
 		kucoinClient:  kucoinClient,
 		uniswapClient: uniswapClient,
@@ -34,6 +34,6 @@ func (e *Executor) ExecuteArbitrage() {
 
 // Close closes the Executor
 func (e *Executor) Close() {
-	e.logger.Info("Closing service")
+	e.logger.Debug("Closing service")
 	// Nothing to do here
 }

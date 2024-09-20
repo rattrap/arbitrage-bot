@@ -14,15 +14,15 @@ import (
 )
 
 func main() {
-	logger := logging.MakeLogger("info")
-	logger.Info("Bot starting...")
+	logger := logging.MakeLogger("debug")
+	logger.Debug("Bot starting...")
 
 	config, err := LoadConfig()
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	logger.Infof("Loaded configuration %+v", config)
+	logger.Debugf("Loaded configuration %+v", config)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -54,7 +54,7 @@ func main() {
 
 	go func() {
 		<-signals
-		logger.Info("Received an interrupt, closing connections...")
+		logger.Debug("Received an interrupt, closing connections...")
 
 		arbitrageService.Close()
 		priceService.Close()
@@ -63,7 +63,7 @@ func main() {
 
 		cancel() // Cancel the context to stop any ongoing operations
 
-		logger.Info("Shutdown complete.")
+		logger.Debug("Shutdown complete.")
 		os.Exit(0)
 	}()
 

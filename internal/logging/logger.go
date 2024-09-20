@@ -44,6 +44,16 @@ func MakeLogger(logLevel string) *Logger {
 	}
 }
 
+// Debug logs a debug message
+func (l *Logger) Debug(args ...interface{}) {
+	l.logger.Debug(args...)
+}
+
+// Debugf logs a formatted debug message
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	l.logger.Debugf(format, args...)
+}
+
 // Info logs an info message
 func (l *Logger) Info(args ...interface{}) {
 	l.logger.Info(args...)
