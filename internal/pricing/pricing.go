@@ -23,14 +23,13 @@ type PricingService struct {
 
 // NewPricingService initializes a new PricingService
 func NewPricingService(kucoinClient *kucoin.KucoinClient, uniswapClient *uniswap.UniswapClient, logger *logging.Logger) *PricingService {
-	contextLogger := logger.WithField("service", "pricing")
-
-	contextLogger.Info("Initializing service")
+	prefixedLogger := logger.WithField("prefix", "pricing")
+	prefixedLogger.Info("Initializing service")
 
 	return &PricingService{
 		kucoinClient:  kucoinClient,
 		uniswapClient: uniswapClient,
-		logger:        contextLogger,
+		logger:        prefixedLogger,
 		stopChan:      make(chan struct{}),
 		lock:          sync.RWMutex{},
 		kucoinPrice:   0,

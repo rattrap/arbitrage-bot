@@ -20,12 +20,12 @@ type ArbitrageService struct {
 
 // NewArbitrageService initializes a new ArbitrageService
 func NewArbitrageService(pricingService *pricing.PricingService, executor *execution.Executor, logger *logging.Logger) *ArbitrageService {
-	contextLogger := logger.WithField("service", "arbitrage")
-	contextLogger.Info("Initializing service")
+	prefixedLogger := logger.WithField("prefix", "arbitrage")
+	prefixedLogger.Info("Initializing service")
 	return &ArbitrageService{
 		pricingService: pricingService,
 		executor:       executor,
-		logger:         contextLogger,
+		logger:         prefixedLogger,
 		stopChan:       make(chan struct{}),
 	}
 }

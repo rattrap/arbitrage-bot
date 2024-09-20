@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 type Logger struct {
@@ -22,7 +23,7 @@ func MakeLogger(logLevel string) *Logger {
 	logger.SetLevel(level)
 
 	// Set the log format
-	logger.SetFormatter(&logrus.TextFormatter{
+	logger.SetFormatter(&prefixed.TextFormatter{
 		ForceColors:      true,
 		DisableTimestamp: false,
 		FullTimestamp:    true,

@@ -17,12 +17,12 @@ type Executor struct {
 
 // NewExecutor initializes a new Executor
 func NewExecutor(kucoinClient *kucoin.KucoinClient, uniswapClient *uniswap.UniswapClient, logger *logging.Logger) *Executor {
-	contextLogger := logger.WithField("service", "execution")
-	contextLogger.Info("Initializing")
+	prefixedLogger := logger.WithField("prefix", "execution")
+	prefixedLogger.Info("Initializing")
 	return &Executor{
 		kucoinClient:  kucoinClient,
 		uniswapClient: uniswapClient,
-		logger:        contextLogger,
+		logger:        prefixedLogger,
 	}
 }
 
