@@ -1,10 +1,12 @@
 package arbitrage
 
 import (
+	"fmt"
 	"math"
 	"rattrap/arbitrage-bot/internal/execution"
 	"rattrap/arbitrage-bot/internal/logging"
 	"rattrap/arbitrage-bot/internal/pricing"
+	"rattrap/arbitrage-bot/internal/telegram"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,17 +16,19 @@ import (
 type ArbitrageService struct {
 	pricingService *pricing.PricingService
 	executor       *execution.Executor
+	telegram       *telegram.TelegramService
 	logger         *logrus.Entry
 	stopChan       chan struct{}
 }
 
 // NewArbitrageService initializes a new ArbitrageService
-func NewArbitrageService(pricingService *pricing.PricingService, executor *execution.Executor, logger *logging.Logger) *ArbitrageService {
+func NewArbitrageService(pricingService *pricing.PricingService, executor *execution.Executor, telegramService *telegram.TelegramService, logger *logging.Logger) *ArbitrageService {
 	prefixedLogger := logger.WithField("prefix", "arbitrage")
 	prefixedLogger.Debug("Initializing service")
 	return &ArbitrageService{
 		pricingService: pricingService,
 		executor:       executor,
+		telegram:       telegramService,
 		logger:         prefixedLogger,
 		stopChan:       make(chan struct{}),
 	}
@@ -46,7 +50,10 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 				priceDifference := kucoinPrice - uniswapPrice
 				priceDifferencePercentage := (priceDifference / uniswapPrice) * 100
 
-				a.logger.Infof("KuCoin price: %.18f, Uniswap price: %.18f, Price difference: %.18f (%.2f%%)", kucoinPrice, uniswapPrice, priceDifference, priceDifferencePercentage)
+				stat := fmt.Sprintf("KuCoin price: %.18f, Uniswap price: %.18f, Price difference: %.18f (%.2f%%)", kucoinPrice, uniswapPrice, priceDifference, priceDifferencePercentage)
+
+				a.logger.Infof(stat)
+				a.telegram.SendMessage(telegram.FormatMessage(stat))
 
 				if math.Abs(priceDifferencePercentage) > 1 {
 					a.logger.Info("Arbitrage opportunity found")

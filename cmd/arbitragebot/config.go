@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -21,6 +22,8 @@ type Config struct {
 	KucoinAPIPassphrase string // KuCoin API Passphrase
 	EthereumRPCURL      string // Ethereum RPC URL (e.g., Infura or Alchemy)
 	EthereumPrivateKey  string // Private key to sign transactions on Ethereum
+	TelegramChannelID   int64  // Telegram Channel ID
+	TelegramBotToken    string // Telegram Bot Token
 }
 
 // LoadConfig loads the configuration values from environment variables or .env file.
@@ -49,6 +52,18 @@ func LoadConfig() (*Config, error) {
 	if config.EthereumPrivateKey == "" {
 		return nil, ErrMissingPrivateKey
 	}
+
+	// Load Telegram configuration
+	telegramChannelID := os.Getenv("TELEGRAM_CHANNEL_ID")
+	if telegramChannelID != "" {
+		// convert from string to int
+		tgID, err := strconv.ParseInt(telegramChannelID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Telegram Channel ID: %w", err)
+		}
+		config.TelegramChannelID = tgID
+	}
+	config.TelegramBotToken = os.Getenv("TELEGRAM_BOT_TOKEN")
 
 	return config, nil
 }

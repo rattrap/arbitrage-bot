@@ -9,6 +9,7 @@ import (
 	"rattrap/arbitrage-bot/internal/kucoin"
 	"rattrap/arbitrage-bot/internal/logging"
 	"rattrap/arbitrage-bot/internal/pricing"
+	"rattrap/arbitrage-bot/internal/telegram"
 	"rattrap/arbitrage-bot/internal/uniswap"
 	"syscall"
 )
@@ -25,6 +26,10 @@ func main() {
 	logger.Debugf("Loaded configuration %+v", config)
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Initialize Telegram service
+	telegramService := telegram.NewTelegramService(config.TelegramBotToken, config.TelegramChannelID)
+	telegramService.SendMessage("Arbitrage bot started")
 
 	// Initialize KuCoin API client
 	err, kucoinClient := kucoin.NewKucoinClient(config.KucoinAPIKey, config.KucoinAPISecret, config.KucoinAPIPassphrase, ctx)
@@ -43,7 +48,7 @@ func main() {
 	priceService.Start()
 
 	// Start arbitrage detection and execution loop
-	arbitrageService := arbitrage.NewArbitrageService(priceService, execution.NewExecutor(kucoinClient, uniswapClient, logger), logger)
+	arbitrageService := arbitrage.NewArbitrageService(priceService, execution.NewExecutor(kucoinClient, uniswapClient, logger), telegramService, logger)
 
 	// Run the arbitrage loop
 	arbitrageService.RunArbitrageLoop()
