@@ -3,9 +3,14 @@ package uniswap
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
 
 	"rattrap/arbitrage-bot/internal/uniswap/contracts"
+
+	coreentities "github.com/daoleno/uniswap-sdk-core/entities"
+	"github.com/daoleno/uniswapv3-sdk/entities"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -13,125 +18,124 @@ import (
 
 // UniswapClient represents a client to interact with Uniswap
 type UniswapClient struct {
-	client        *ethclient.Client
-	context       context.Context
-	pool          *contracts.UniswapV3PoolCaller
-	token0Address common.Address
-	token1Address common.Address
-	token0        *contracts.IERC20MinimalCaller
-	token1        *contracts.IERC20MinimalCaller
+	client  *ethclient.Client
+	wallet  *Wallet
+	context context.Context
+	pool    *entities.Pool
 }
 
 // NewUniswapClient initializes a new Uniswap client
-func NewUniswapClient(ethereumRPCUrl string, ctx context.Context) (error, *UniswapClient) {
+func NewUniswapClient(ethereumRPCUrl string, uniswapPoolAddress, uniswapTickLensAddress common.Address, ethereumPrivateKey string, ctx context.Context) (error, *UniswapClient) {
 	client, err := ethclient.Dial(ethereumRPCUrl)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to the Ethereum client"), nil
 	}
 	defer client.Close()
 
-	pool, err := contracts.NewUniswapV3PoolCaller(common.HexToAddress("0x543842CBfef3B3F5614B2153c28936967218A0E6"), client)
+	wallet := InitWallet(ethereumPrivateKey)
+	if wallet == nil {
+		return fmt.Errorf("Failed to initialize the wallet"), nil
+	}
+
+	ticklens, err := contracts.NewTickLensCaller(uniswapTickLensAddress, client)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to the TickLens"), nil
+	}
+
+	pool, err := ConstructV3Pool(client, uniswapPoolAddress, ticklens, ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to the Uniswap V3 pool"), nil
 	}
 
-	token0Address, err := pool.Token0(nil)
-	if err != nil {
-		return fmt.Errorf("Failed to get token0 address"), nil
-	}
-
-	token1Address, err := pool.Token1(nil)
-	if err != nil {
-		return fmt.Errorf("Failed to get token1 address"), nil
-	}
-
-	token0, err := contracts.NewIERC20MinimalCaller(token0Address, client)
-	if err != nil {
-		return fmt.Errorf("Failed to connect to token0"), nil
-	}
-
-	token1, err := contracts.NewIERC20MinimalCaller(token1Address, client)
-	if err != nil {
-		return fmt.Errorf("Failed to connect to token1"), nil
-	}
-
 	return nil, &UniswapClient{
-		client:        client,
-		context:       ctx,
-		pool:          pool,
-		token0Address: token0Address,
-		token1Address: token1Address,
-		token0:        token0,
-		token1:        token1,
+		client:  client,
+		wallet:  wallet,
+		context: ctx,
+		pool:    pool,
 	}
 }
 
 // GetPrice returns the current price of a token on Uniswap
-func (c *UniswapClient) GetPrice(token string) (float64, error) {
-	var slot0 struct {
-		SqrtPriceX96               *big.Int
-		Tick                       *big.Int
-		ObservationIndex           uint16
-		ObservationCardinality     uint16
-		ObservationCardinalityNext uint16
-		FeeProtocol                uint8
-		Unlocked                   bool
-	}
-	slot0, err := c.pool.Slot0(nil)
+func (c *UniswapClient) GetPrice() (float64, error) {
+	price, err := c.pool.PriceOf(c.pool.Token0)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get slot0: %s", err)
+		return 0, err
 	}
 
-	// price := new(big.Float).SetInt(slot0.SqrtPriceX96)
-	// price.Mul(price, price)
-	// price.Quo(price, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(2), big.NewInt(192), nil)))
-
-	sqrtPriceX96 := new(big.Float).SetInt(slot0.SqrtPriceX96)
-
-	scaleFactor := new(big.Int).Exp(big.NewInt(2), big.NewInt(96), nil)
-	price := new(big.Float).Quo(sqrtPriceX96, new(big.Float).SetInt(scaleFactor)) // sqrtPriceX96 / 2^96
-	price.Mul(price, price)
-
-	token0Decimals, err := c.token0.Decimals(nil)
+	priceFloat, err := strconv.ParseFloat(price.ToFixed(18), 64)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get token0 decimals: %s", err)
+		return 0, err
 	}
-
-	token1Decimals, err := c.token1.Decimals(nil)
-	if err != nil {
-		return 0, fmt.Errorf("Failed to get token1 decimals: %s", err)
-	}
-
-	price.Mul(price, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(token0Decimals)-int64(token1Decimals)), nil)))
-
-	// Convert the price to a float64
-	priceFloat, _ := price.Float64()
 
 	return priceFloat, nil
 }
 
-// Get liquidity returns the current liquidity of a token on Uniswap
-func (c *UniswapClient) GetLiquidity(token string) (float64, error) {
-	liquidity, err := c.pool.Liquidity(nil)
+func (c *UniswapClient) GetEthBalance() (*coreentities.CurrencyAmount, error) {
+	balance, err := c.client.BalanceAt(c.context, c.wallet.PublicKey, nil)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get liquidity: %s", err)
+		return nil, err
+	}
+	return coreentities.FromRawAmount(coreentities.EtherOnChain(1), balance), nil
+}
+
+// BalanceOf returns the balance of a token in the wallet
+func (c *UniswapClient) BalanceOf(token *coreentities.Token) (*coreentities.CurrencyAmount, error) {
+	tokenContract, err := contracts.NewERC20Caller(token.Address, c.client)
+	if err != nil {
+		return nil, err
 	}
 
-	liquidityToken0, err := c.token0.BalanceOf(nil, c.token0Address)
+	balance, err := tokenContract.BalanceOf(nil, c.wallet.PublicKey)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get token0 balance: %s", err)
+		return nil, err
 	}
 
-	liquidityToken1, err := c.token1.BalanceOf(nil, c.token1Address)
+	return coreentities.FromRawAmount(token, balance), nil
+}
+
+// GetBalances returns the balances of the wallet
+func (c *UniswapClient) GetBalances() (*coreentities.CurrencyAmount, *coreentities.CurrencyAmount, error) {
+
+	token0Balance, err := c.BalanceOf(c.pool.Token0)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get token1 balance: %s", err)
+		return coreentities.FromRawAmount(c.pool.Token0, big.NewInt(0)), coreentities.FromRawAmount(c.pool.Token1, big.NewInt(0)), err
 	}
 
-	fmt.Printf("Liquidity: %s\n", liquidity.String())
-	fmt.Printf("Token0: %s\n", liquidityToken0.String())
-	fmt.Printf("Token1: %s\n", liquidityToken1.String())
+	token1Balance, err := c.BalanceOf(c.pool.Token1)
+	if err != nil {
+		return coreentities.FromRawAmount(c.pool.Token0, big.NewInt(0)), coreentities.FromRawAmount(c.pool.Token1, big.NewInt(0)), err
+	}
 
-	return 0, nil
+	return token0Balance, token1Balance, nil
+}
+
+func (c *UniswapClient) TargetPriceToSqrtPriceX96(targetPrice float64) *big.Int {
+	targetSqrtPrice := new(big.Float).SetFloat64(targetPrice)
+	targetSqrtPrice.Quo(targetSqrtPrice, big.NewFloat(math.Pow(10, float64(c.pool.Token0.Decimals()-c.pool.Token1.Decimals()))))
+	targetSqrtPriceFloat, _ := targetSqrtPrice.Float64()
+	price := PriceToSqrtPriceX96(targetSqrtPriceFloat)
+	return price
+
+}
+
+func (c *UniswapClient) GetBuyAmount(targetPrice float64) (*coreentities.CurrencyAmount, error) {
+	outputAmount := coreentities.FromRawAmount(c.pool.Token0, coreentities.MaxUint256)
+	inputAmount, _, err := c.pool.GetInputAmount(outputAmount, c.TargetPriceToSqrtPriceX96(targetPrice))
+	if err != nil {
+		return coreentities.FromRawAmount(c.pool.Token0, big.NewInt(0)), err
+	}
+
+	return inputAmount, nil
+}
+
+func (c *UniswapClient) GetSellAmount(targetPrice float64) (*coreentities.CurrencyAmount, error) {
+	outputAmount := coreentities.FromRawAmount(c.pool.Token1, coreentities.MaxUint256)
+	inputAmount, _, err := c.pool.GetInputAmount(outputAmount, c.TargetPriceToSqrtPriceX96(targetPrice))
+	if err != nil {
+		return coreentities.FromRawAmount(c.pool.Token0, big.NewInt(0)), err
+	}
+
+	return inputAmount, nil
 }
 
 // Close closes the Uniswap client

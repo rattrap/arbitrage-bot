@@ -5,25 +5,32 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/joho/godotenv"
 )
 
 // Custom errors for missing configuration values
 var (
-	ErrMissingAPIKey     = fmt.Errorf("missing KuCoin API keys")
-	ErrMissingRPCURL     = fmt.Errorf("missing Ethereum RPC URL")
-	ErrMissingPrivateKey = fmt.Errorf("missing Ethereum private key")
+	ErrMissingAPIKey                 = fmt.Errorf("missing KuCoin API keys")
+	ErrMissingRPCURL                 = fmt.Errorf("missing Ethereum RPC URL")
+	ErrMissingPrivateKey             = fmt.Errorf("missing Ethereum private key")
+	ErrMissingUniswapPoolAddress     = fmt.Errorf("missing Uniswap V3 pool address")
+	ErrMissingUniswapTickLensAddress = fmt.Errorf("missing Uniswap V3 tick lens address")
+	ErrMissingTradingPair            = fmt.Errorf("missing trading pair")
 )
 
 // Config stores all the configuration values for the arbitrage bot.
 type Config struct {
-	KucoinAPIKey        string // KuCoin API Key
-	KucoinAPISecret     string // KuCoin API Secret
-	KucoinAPIPassphrase string // KuCoin API Passphrase
-	EthereumRPCURL      string // Ethereum RPC URL (e.g., Infura or Alchemy)
-	EthereumPrivateKey  string // Private key to sign transactions on Ethereum
-	TelegramChannelID   int64  // Telegram Channel ID
-	TelegramBotToken    string // Telegram Bot Token
+	KucoinAPIKey           string         // KuCoin API Key
+	KucoinAPISecret        string         // KuCoin API Secret
+	KucoinAPIPassphrase    string         // KuCoin API Passphrase
+	EthereumRPCURL         string         // Ethereum RPC URL (e.g., Infura or Alchemy)
+	EthereumPrivateKey     string         // Private key to sign transactions on Ethereum
+	TelegramChannelID      int64          // Telegram Channel ID
+	TelegramBotToken       string         // Telegram Bot Token
+	UniswapPoolAddress     common.Address // Uniswap V3 pool address
+	UniswapTickLensAddress common.Address // Uniswap V3 tick lens address
+	TradingPair            string         // Trading pair to monitor
 }
 
 // LoadConfig loads the configuration values from environment variables or .env file.
@@ -64,6 +71,24 @@ func LoadConfig() (*Config, error) {
 		config.TelegramChannelID = tgID
 	}
 	config.TelegramBotToken = os.Getenv("TELEGRAM_BOT_TOKEN")
+
+	uniswapPoolAddress := os.Getenv("UNISWAP_POOL_ADDRESS")
+	if uniswapPoolAddress == "" {
+		return nil, ErrMissingUniswapPoolAddress
+	}
+	config.UniswapPoolAddress = common.HexToAddress(uniswapPoolAddress)
+
+	uniswapTickLensAddress := os.Getenv("UNISWAP_TICKLENS_ADDRESS")
+	if uniswapTickLensAddress == "" {
+		return nil, ErrMissingUniswapTickLensAddress
+	}
+	config.UniswapTickLensAddress = common.HexToAddress(uniswapTickLensAddress)
+
+	tradingPair := os.Getenv("TRADING_PAIR")
+	if tradingPair == "" {
+		return nil, ErrMissingTradingPair
+	}
+	config.TradingPair = tradingPair
 
 	return config, nil
 }

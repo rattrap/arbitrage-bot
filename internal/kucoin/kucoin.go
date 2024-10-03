@@ -41,11 +41,35 @@ func NewKucoinClient(apiKey, apiSecret, apiPassphrase string, context context.Co
 	if s.Status != "open" {
 		return fmt.Errorf("KuCoin API is not open: %s", s.Status), nil
 	}
-
 	return nil, &KucoinClient{
 		client:  client,
 		context: context,
 	}
+}
+
+// BalanceOf returns the balance of a currency
+func (c *KucoinClient) BalanceOf(currency string) (float64, error) {
+	account, err := c.client.Accounts(c.context, "", "")
+	if err != nil {
+		return 0, fmt.Errorf("Failed to get account list: %s", err)
+	}
+
+	accounts := &kucoin.AccountsModel{}
+	if err := account.ReadData(accounts); err != nil {
+		return 0, fmt.Errorf("Failed to read account data: %s", err)
+	}
+
+	for _, a := range *accounts {
+		if a.Currency == currency {
+			balance, err := strconv.ParseFloat(a.Available, 64)
+			if err != nil {
+				return 0, fmt.Errorf("Failed to parse balance: %s", err)
+			}
+			return balance, nil
+		}
+	}
+
+	return 0, fmt.Errorf("Currency %s not found", currency)
 }
 
 // GetPrice returns the current price of a trading pair
@@ -70,5 +94,4 @@ func (c *KucoinClient) GetPrice(tradingPair string) (float64, error) {
 
 // Close closes the KuCoin client
 func (c *KucoinClient) Close() {
-	// Nothing to do here
 }

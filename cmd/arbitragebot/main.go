@@ -34,24 +34,24 @@ func main() {
 		logger.WithError(err).Fatal("Failed to send message to Telegram")
 	}
 
+	// Initialize Uniswap client
+	err, uniswapClient := uniswap.NewUniswapClient(config.EthereumRPCURL, config.UniswapPoolAddress, config.UniswapTickLensAddress, config.EthereumPrivateKey, ctx)
+	if err != nil {
+		logger.WithError(err).Fatal("Failed to initialize Uniswap client")
+	}
+
 	// Initialize KuCoin API client
 	err, kucoinClient := kucoin.NewKucoinClient(config.KucoinAPIKey, config.KucoinAPISecret, config.KucoinAPIPassphrase, ctx)
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to initialize KuCoin client")
 	}
 
-	// Initialize Uniswap client
-	err, uniswapClient := uniswap.NewUniswapClient(config.EthereumRPCURL, ctx)
-	if err != nil {
-		logger.WithError(err).Fatal("Failed to initialize Uniswap client")
-	}
-
 	// Start fetching prices
-	priceService := pricing.NewPricingService(kucoinClient, uniswapClient, logger)
+	priceService := pricing.NewPricingService(uniswapClient, kucoinClient, logger)
 	priceService.Start()
 
 	// Start arbitrage detection and execution loop
-	arbitrageService := arbitrage.NewArbitrageService(priceService, execution.NewExecutor(kucoinClient, uniswapClient, logger), telegramService, logger)
+	arbitrageService := arbitrage.NewArbitrageService(priceService, execution.NewExecutor(uniswapClient, kucoinClient, logger), telegramService, logger)
 
 	// Run the arbitrage loop
 	arbitrageService.RunArbitrageLoop()
