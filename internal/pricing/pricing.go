@@ -50,7 +50,7 @@ func (ps *PricingService) FetchPrices() {
 	}
 
 	// Fetch prices from KuCoin
-	kucoinPrice, err := ps.kucoinClient.GetPrice("ELON-USDT")
+	kucoinPrice, err := ps.kucoinClient.GetPrice()
 	if err != nil {
 		ps.logger.WithError(err).Error("Failed to get KuCoin price")
 	}
@@ -73,10 +73,17 @@ func (ps *PricingService) GetUniswapPrice() float64 {
 }
 
 // GetKucoinPrice returns the current price of a trading pair from KuCoin
-func (ps *PricingService) GetKucoinPrice(tradingPair string) float64 {
+func (ps *PricingService) GetKucoinPrice() float64 {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 	return ps.kucoinPrice
+}
+
+// GetPrices returns the current prices from Uniswap and KuCoin
+func (ps *PricingService) GetPrices() (float64, float64) {
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+	return ps.uniswapPrice, ps.kucoinPrice
 }
 
 // Close closes the PricingService

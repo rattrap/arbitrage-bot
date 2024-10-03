@@ -5,18 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	kucoin "github.com/Kucoin/kucoin-go-sdk"
+
+	"rattrap/arbitrage-bot/internal/utils"
 )
 
 // KucoinClient represents a client to interact with KuCoin
 type KucoinClient struct {
-	client  *kucoin.ApiService
-	context context.Context
+	client      *kucoin.ApiService
+	context     context.Context
+	tradingPair string
+	token0      string
+	token1      string
 }
 
 // NewKucoinClient initializes a new KuCoin API client
-func NewKucoinClient(apiKey, apiSecret, apiPassphrase string, context context.Context) (error, *KucoinClient) {
+func NewKucoinClient(tradingPair, apiKey, apiSecret, apiPassphrase string, context context.Context) (error, *KucoinClient) {
 	client := kucoin.NewApiService(
 		// kucoin.ApiBaseURIOption("https://api.kucoin.com"),
 		kucoin.ApiKeyOption(apiKey),
@@ -41,9 +47,15 @@ func NewKucoinClient(apiKey, apiSecret, apiPassphrase string, context context.Co
 	if s.Status != "open" {
 		return fmt.Errorf("KuCoin API is not open: %s", s.Status), nil
 	}
+
+	token0, token1 := utils.GetTokensFromTradingPair(tradingPair)
+
 	return nil, &KucoinClient{
-		client:  client,
-		context: context,
+		client:      client,
+		context:     context,
+		tradingPair: tradingPair,
+		token0:      token0,
+		token1:      token1,
 	}
 }
 
@@ -73,23 +85,39 @@ func (c *KucoinClient) BalanceOf(currency string) (float64, error) {
 }
 
 // GetPrice returns the current price of a trading pair
-func (c *KucoinClient) GetPrice(tradingPair string) (float64, error) {
-	ticker, err := c.client.TickerLevel1(c.context, tradingPair)
+func (c *KucoinClient) GetPrice() (float64, error) {
+	ticker, err := c.client.TickerLevel1(c.context, c.tradingPair)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get ticker for %s: %s", tradingPair, err)
+		return 0, fmt.Errorf("Failed to get ticker for %s: %s", c.tradingPair, err)
 	}
 
 	t := &kucoin.TickerLevel1Model{}
 	if err := ticker.ReadData(t); err != nil {
-		return 0, fmt.Errorf("Failed to read ticker data for %s: %s", tradingPair, err)
+		return 0, fmt.Errorf("Failed to read ticker data for %s: %s", c.tradingPair, err)
 	}
 
 	price, err := strconv.ParseFloat(t.Price, 64)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to parse price for %s: %s", tradingPair, err)
+		return 0, fmt.Errorf("Failed to parse price for %s: %s", c.tradingPair, err)
 	}
 
 	return price, nil
+}
+
+// Trade executes a trade
+func (c *KucoinClient) Trade(side, symbol, size string, priceLimit float64) error {
+	priceLimitStr := fmt.Sprintf("%.18f", priceLimit)
+	order, err := c.client.CreateOrder(c.context, &kucoin.CreateOrderModel{
+		ClientOid:   kucoin.IntToString(time.Now().UnixNano()),
+		Symbol:      c.tradingPair,
+		Side:        side,
+		Type:        "limit",
+		Price:       priceLimitStr,
+		Size:        size,
+		TimeInForce: "GTC",
+	})
+	fmt.Printf("order=%+v\n", order)
+	return err
 }
 
 // Close closes the KuCoin client

@@ -2,6 +2,7 @@ package arbitrage
 
 import (
 	"fmt"
+	"math"
 	"rattrap/arbitrage-bot/internal/execution"
 	"rattrap/arbitrage-bot/internal/logging"
 	"rattrap/arbitrage-bot/internal/pricing"
@@ -43,8 +44,7 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 				return
 			default:
 				a.logger.Debug("Checking for arbitrage opportunities...")
-				kucoinPrice := a.pricingService.GetKucoinPrice("ELON-USDT")
-				uniswapPrice := a.pricingService.GetUniswapPrice()
+				uniswapPrice, kucoinPrice := a.pricingService.GetPrices()
 
 				// Calculate the difference between the two prices
 				priceDifference := kucoinPrice - uniswapPrice
@@ -58,12 +58,12 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 					a.logger.WithError(err).Error("Failed to send message to Telegram")
 				}
 
-				// if math.Abs(priceDifferencePercentage) > 1 {
-				a.logger.Info("Arbitrage opportunity found")
-				a.executor.ExecuteArbitrage()
-				// }
+				if math.Abs(priceDifferencePercentage) > 1 {
+					a.logger.Info("Arbitrage opportunity found")
+					a.executor.ExecuteArbitrage()
+				}
 
-				time.Sleep(30 * time.Second)
+				time.Sleep(300 * time.Second)
 			}
 		}
 	}()
