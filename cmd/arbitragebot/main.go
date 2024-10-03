@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"rattrap/arbitrage-bot/internal/arbitrage"
@@ -14,13 +15,29 @@ import (
 	"syscall"
 )
 
+var (
+	paperTrading bool
+	logLevel     string
+)
+
+func init() {
+	flag.BoolVar(&paperTrading, "paper", false, "Enable paper trading mode")
+	flag.StringVar(&logLevel, "logLevel", "debug", "Log level (debug, info, warn, error, fatal, panic)")
+	flag.Parse()
+}
+
 func main() {
-	logger := logging.MakeLogger("debug")
-	logger.Debug("Bot starting...")
+	logger := logging.MakeLogger(logLevel)
 
 	config, err := LoadConfig()
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to load configuration")
+	}
+
+	if paperTrading {
+		logger.Info("Bot starting in PAPER TRADING MODE...")
+	} else {
+		logger.Info("Bot starting in LIVE TRADING MODE...")
 	}
 
 	logger.Debugf("Loaded configuration %+v", config)
@@ -50,8 +67,12 @@ func main() {
 	priceService := pricing.NewPricingService(uniswapClient, kucoinClient, logger)
 	priceService.Start()
 
+	// Start the execution service
+	execution := execution.NewExecutor(paperTrading, config.TradingPair, uniswapClient, kucoinClient, logger)
+	execution.Start()
+
 	// Start arbitrage detection and execution loop
-	arbitrageService := arbitrage.NewArbitrageService(priceService, execution.NewExecutor(config.TradingPair, uniswapClient, kucoinClient, logger), telegramService, logger)
+	arbitrageService := arbitrage.NewArbitrageService(priceService, execution, telegramService, logger)
 
 	// Run the arbitrage loop
 	arbitrageService.RunArbitrageLoop()

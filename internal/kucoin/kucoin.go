@@ -105,9 +105,9 @@ func (c *KucoinClient) GetPrice() (float64, error) {
 }
 
 // Trade executes a trade
-func (c *KucoinClient) Trade(side, symbol, size string, priceLimit float64) error {
+func (c *KucoinClient) Trade(side, symbol, size string, priceLimit float64, paper bool) error {
 	priceLimitStr := fmt.Sprintf("%.18f", priceLimit)
-	order, err := c.client.CreateOrder(c.context, &kucoin.CreateOrderModel{
+	orderModel := &kucoin.CreateOrderModel{
 		ClientOid:   kucoin.IntToString(time.Now().UnixNano()),
 		Symbol:      c.tradingPair,
 		Side:        side,
@@ -115,7 +115,15 @@ func (c *KucoinClient) Trade(side, symbol, size string, priceLimit float64) erro
 		Price:       priceLimitStr,
 		Size:        size,
 		TimeInForce: "GTC",
-	})
+	}
+	var order *kucoin.ApiResponse
+	var err error
+	if paper {
+		order, err = c.client.CreateOrderTest(c.context, orderModel)
+	} else {
+		order, err = c.client.CreateOrder(c.context, orderModel)
+	}
+
 	fmt.Printf("order=%+v\n", order)
 	return err
 }

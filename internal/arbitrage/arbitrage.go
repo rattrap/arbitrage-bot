@@ -24,7 +24,7 @@ type ArbitrageService struct {
 // NewArbitrageService initializes a new ArbitrageService
 func NewArbitrageService(pricingService *pricing.PricingService, executor *execution.Executor, telegramService *telegram.TelegramService, logger *logging.Logger) *ArbitrageService {
 	prefixedLogger := logger.WithField("prefix", "arbitrage")
-	prefixedLogger.Debug("Initializing service")
+	prefixedLogger.Debug("Starting service")
 	return &ArbitrageService{
 		pricingService: pricingService,
 		executor:       executor,
@@ -35,7 +35,6 @@ func NewArbitrageService(pricingService *pricing.PricingService, executor *execu
 }
 
 func (a *ArbitrageService) RunArbitrageLoop() {
-	a.pricingService.FetchPrices()
 	go func() {
 		for {
 			select {
@@ -43,6 +42,7 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 				a.logger.Debug("Stopping arbitrage loop")
 				return
 			default:
+				a.pricingService.FetchPrices()
 				a.logger.Debug("Checking for arbitrage opportunities...")
 				uniswapPrice, kucoinPrice := a.pricingService.GetPrices()
 
@@ -63,7 +63,7 @@ func (a *ArbitrageService) RunArbitrageLoop() {
 					a.executor.ExecuteArbitrage()
 				}
 
-				time.Sleep(300 * time.Second)
+				time.Sleep(1 * time.Minute)
 			}
 		}
 	}()

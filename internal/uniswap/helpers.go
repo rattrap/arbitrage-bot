@@ -2,10 +2,8 @@ package uniswap
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"sort"
 
 	"rattrap/arbitrage-bot/internal/uniswap/contracts"
@@ -75,15 +73,7 @@ func ConstructV3Pool(client *ethclient.Client, poolAddress common.Address, tickL
 		return nil, err
 	}
 
-	ticks := getTicksFromFile(poolAddress.String())
-	if len(ticks) == 0 {
-		ticks, err := GetPoolTicks(client, fee, poolAddress, tickLens)
-		if err != nil {
-			return nil, err
-		}
-		writeTicksToFile(ticks, poolAddress.String())
-	}
-
+	ticks, err := GetPoolTicks(client, fee, poolAddress, tickLens)
 	fmt.Printf("Pool %s has %d ticks\n", poolAddress.String(), len(ticks))
 
 	// create tick data provider
@@ -169,57 +159,4 @@ func GetPoolTicks(client *ethclient.Client, fee *big.Int, poolAddress common.Add
 
 func getTickSpacing(swapFee float64) int {
 	return constants.TickSpacings[constants.FeeAmount(swapFee)]
-}
-
-func writeTicksToFile(ticks []entities.Tick, poolAddress string) {
-	ticksJSON, _ := json.Marshal(ticks)
-
-	file := "ticks_" + poolAddress + ".txt"
-	f, err := os.Create(file)
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	_, err = f.Write(ticksJSON)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func getTicksFromFile(poolAddress string) []entities.Tick {
-	fmt.Printf("Reading ticks from file %s\n", poolAddress)
-	file := "ticks_" + poolAddress + ".txt"
-	f, err := os.Open(file)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Printf("File %s does not exist\n", file)
-			return []entities.Tick{}
-		} else {
-			panic(err)
-		}
-	}
-
-	fi, err := f.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	// Check if the file is older than 1 hour
-	if fi.ModTime().Add(1 * 60 * 60).Before(fi.ModTime()) {
-		fmt.Printf("File %s is older than 1 hour\n", file)
-		return []entities.Tick{}
-	}
-
-	ticks := []entities.Tick{}
-	err = json.NewDecoder(f).Decode(&ticks)
-	if err != nil {
-		panic(err)
-	}
-
-	return ticks
 }

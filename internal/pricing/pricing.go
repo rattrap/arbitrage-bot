@@ -23,7 +23,6 @@ type PricingService struct {
 // NewPricingService initializes a new PricingService
 func NewPricingService(uniswapClient *uniswap.UniswapClient, kucoinClient *kucoin.KucoinClient, logger *logging.Logger) *PricingService {
 	prefixedLogger := logger.WithField("prefix", "pricing")
-	prefixedLogger.Debug("Initializing service")
 
 	return &PricingService{
 		uniswapClient: uniswapClient,

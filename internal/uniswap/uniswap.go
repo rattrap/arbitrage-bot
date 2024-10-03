@@ -17,18 +17,21 @@ import (
 	"github.com/daoleno/uniswapv3-sdk/periphery"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 // UniswapClient represents a client to interact with Uniswap
 type UniswapClient struct {
-	client      *ethclient.Client
-	wallet      *Wallet
-	context     context.Context
-	pool        *entities.Pool
-	tradingPair string
-	token0      string
-	token1      string
+	client             *ethclient.Client
+	wallet             *Wallet
+	context            context.Context
+	uniswapPoolAddress common.Address
+	ticklens           *contracts.TickLensCaller
+	pool               *entities.Pool
+	tradingPair        string
+	token0             string
+	token1             string
 }
 
 // NewUniswapClient initializes a new Uniswap client
@@ -57,13 +60,15 @@ func NewUniswapClient(tradingPair, ethereumRPCUrl string, uniswapPoolAddress, un
 	token0, token1 := utils.GetTokensFromTradingPair(tradingPair)
 
 	return nil, &UniswapClient{
-		client:      client,
-		wallet:      wallet,
-		context:     ctx,
-		pool:        pool,
-		tradingPair: tradingPair,
-		token0:      token0,
-		token1:      token1,
+		client:             client,
+		wallet:             wallet,
+		context:            ctx,
+		uniswapPoolAddress: uniswapPoolAddress,
+		ticklens:           ticklens,
+		pool:               pool,
+		tradingPair:        tradingPair,
+		token0:             token0,
+		token1:             token1,
 	}
 }
 
@@ -154,7 +159,7 @@ func (c *UniswapClient) GetSellAmount(targetPrice float64) (*coreentities.Curren
 }
 
 // Trade trades tokens on Uniswap
-func (c *UniswapClient) Trade(amount *coreentities.CurrencyAmount) error {
+func (c *UniswapClient) Trade(amount *coreentities.CurrencyAmount, paper bool) error {
 	//0.01%
 	slippageTolerance := coreentities.NewPercent(big.NewInt(1), big.NewInt(1000))
 	//after 5 minutes
@@ -180,9 +185,6 @@ func (c *UniswapClient) Trade(amount *coreentities.CurrencyAmount) error {
 		return err
 	}
 
-	fmt.Printf("trade=%+v\n", trade)
-
-	fmt.Printf("%v %v\n", trade.Swaps[0].InputAmount.Quotient(), trade.Swaps[0].OutputAmount.Wrapped().Quotient())
 	params, err := periphery.SwapCallParameters([]*entities.Trade{trade}, &periphery.SwapOptions{
 		SlippageTolerance: slippageTolerance,
 		Recipient:         c.wallet.PublicKey,
@@ -192,11 +194,27 @@ func (c *UniswapClient) Trade(amount *coreentities.CurrencyAmount) error {
 		return err
 	}
 
-	tx, err := SendTX(c.client, common.HexToAddress(helper.ContractV3SwapRouterV1), big.NewInt(0), params.Calldata, c.wallet)
-	if err != nil {
-		return err
+	var tx *types.Transaction
+	if paper {
+		tx, err = TryTX(c.client, common.HexToAddress(helper.ContractV3SwapRouterV1), big.NewInt(0), params.Calldata, c.wallet)
+		if err != nil {
+			return err
+		}
+	} else {
+		tx, err = SendTX(c.client, common.HexToAddress(helper.ContractV3SwapRouterV1), big.NewInt(0), params.Calldata, c.wallet)
+		if err != nil {
+			return err
+		}
 	}
+
 	fmt.Println(tx.Hash().String())
+
+	pool, err := ConstructV3Pool(c.client, c.uniswapPoolAddress, c.ticklens, c.context)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to the Uniswap V3 pool")
+	}
+
+	c.pool = pool
 
 	return nil
 

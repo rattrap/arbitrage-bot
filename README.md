@@ -46,3 +46,19 @@ You can now run the binary `./build/arbitragebot`
 docker build -t arbitrage-bot:latest
 docker run --env-file .env arbitrage-bot:latest
 ```
+
+## Paper trading mode
+
+If the paper trading mode is enabled, no real transactions will be made on either Uniswap or Kucoin
+
+```bash
+./build/arbitragebot --paper
+```
+
+## Log Level
+
+Can be one of: debug, info, warn, error, fatal, panic
+
+```bash
+./build/arbitragebot --logLevel=info
+```
