@@ -3,7 +3,7 @@ module rattrap/arbitrage-bot
 go 1.23.1
 
 require (
-	github.com/Kucoin/kucoin-go-sdk v1.2.16
+	github.com/Kucoin/kucoin-go-sdk v1.2.18
 	github.com/daoleno/uniswap-sdk-core v0.1.7
 	github.com/daoleno/uniswapv3-sdk v0.4.0
 	github.com/ethereum/go-ethereum v1.14.11
